@@ -13,6 +13,7 @@ v2:
 Todo:
 
 * fix textonly mis-classification cases
+* fix so all writing for a ppt file is a single transaction
 * add file metadata (author, creation date, ...)
 * enable SQLite full text search (https://charlesleifer.com/blog/using-sqlite-full-text-search-with-python/)
 * browser based search tool
@@ -76,9 +77,10 @@ def extract_slides(fn):
 
     
     def contains_types(objs, types=(30,1,2,20,3,27,21,7,8,5,28,24,22,23,9,31,29,10,11,16,12,13,-2,19,26)):
+        # default types is (hopefully) anything that isn't text
         # todo: do msoPlaceholder=14 objects have children???
         for obj in objs:
-            print(obj.Type)
+            #print(obj.Type)
             if obj.Type in types:
                 return True
             elif obj.Type==msoGroup:
