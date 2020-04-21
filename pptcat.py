@@ -257,6 +257,29 @@ def fetch_known_checksums(db):
     return [row['hash'] for row in cur]
 
 
+def process1(db, fn, known_checksums):
+    logging.info('processing %s...', fn)
+
+    # check that this ppt hasn't been indexed previously based on file md5
+    checksum = file_checksum(fn)
+    if checksum in known_checksums:
+        logging.warning('skipping duplicate %s', fn)
+        return
+    
+    # write file to library & update known_checksums
+    fileid = store_file(db, os.path.abspath(fn), checksum)
+    known_checksums.append(checksum)
+    
+    # extract: render (thumbnail, hires), text fragments, serialize?
+    slides = extract_slides(fn)
+
+    # write slides to library
+    for slide in slides:
+        slide['fingerprint'] = image_fingerprint(slide['thumb'])
+        slideid, outbasefn = store_slide(db, fileid, slide)
+        logging.info('wrote slide %s::%s -> %s', fn, slide['islide'], outbasefn)
+
+
 def main():
     # open existing database if exists else create new
     db = db_connect()
@@ -270,27 +293,10 @@ def main():
     
     # for each file to index
     for fn in fns:
-        logging.info('processing %s...', fn)
-
-        # check that this ppt hasn't been indexed previously based on file md5
-        checksum = file_checksum(fn)
-        if checksum in known_checksums:
-            logging.warning('skipping duplicate %s', fn)
-            continue
-
-        # write file to library & update known_checksums
-        fileid = store_file(db, os.path.abspath(fn), checksum)
-        known_checksums.append(checksum)
-        
-        # extract: render (thumbnail, hires), text fragments, serialize?
-        slides = extract_slides(fn)
-
-        # write slides to library
-        for slide in slides:
-            slide['fingerprint'] = image_fingerprint(slide['thumb'])
-            slideid, outbasefn = store_slide(db, fileid, slide)
-            logging.info('wrote slide %s::%s -> %s', fn, slide['islide'], outbasefn)
-
+        try:
+            process1(db, fn, known_checksums)
+        except Exception as err:
+            logging.warning('%s failed: %s', fn, err)
 
 if __name__=="__main__":
     main()
