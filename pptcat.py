@@ -20,6 +20,7 @@ Todo:
 * run over everything at scion
 * free from needing PowerPoint installed
 * pkg as exe
+* semantic image search? (or at least ordeering by similarity)
 
 """
 
@@ -44,7 +45,7 @@ create table if not exists slides(
   hires blob,
   text text,
   textonly integer,
-  foreign key (fileid) 
+  foreign key (fileid)
     references files (rowid)
     on delete cascade
     on update cascade,
@@ -64,7 +65,7 @@ def extract_slides(fn):
     # surely these must be importable from somewhere
     msoGroup = 6 # msoShapeType Enum
     msoTrue = -1 #!!! wtf??? msoTriState Enum
-    
+
     def text_from_group(parent):
         text = []
         for child in parent.GroupItems:
@@ -75,7 +76,7 @@ def extract_slides(fn):
                     text.append(child.TextFrame.TextRange.Text)
         return text
 
-    
+
     def contains_types(objs, types=(30,1,2,20,3,27,21,7,8,5,28,24,22,23,9,31,29,10,11,16,12,13,-2,19,26)):
         # default types is (hopefully) anything that isn't text
         # todo: do msoPlaceholder=14 objects have children???
@@ -88,7 +89,7 @@ def extract_slides(fn):
                     return True
         return False
 
-    
+
     def render_slide(height):
         from PIL import Image
         fn = os.path.join(tmp_dir, '%i_thumb.png' % islide)
@@ -97,7 +98,7 @@ def extract_slides(fn):
         img.load()
         return img
 
-    
+
     slides = []
     tmp_dir = make_temp_dir()
     logging.debug('using temp dir %s', tmp_dir)
@@ -121,14 +122,14 @@ def extract_slides(fn):
             if shp.Type==msoGroup:
                 text.extend(text_from_group(shp))
         this['text'] = text
-        
+
         # extract images
         this['thumb'] = render_slide(height=240) # PIL.Image object
         this['hires'] = render_slide(height=1080)
 
         # figure out if this slide contains anything other than text
         this['textonly'] = not contains_types(slide.Shapes) # default is to look for non text types
-            
+
         # todo: serialize slide?
 
         slides.append(this)
@@ -137,7 +138,7 @@ def extract_slides(fn):
     powerpoint.Quit()
 
     # todo: cleanup tmp dir
-    
+
     return slides
 
 
@@ -213,7 +214,7 @@ def store_slide(db, fileid, slide):
     except Exception as err:
         print(err)
         import pdb; pdb.set_trace()
-        
+
     slideid = cur.lastrowid
 
     slidebasefn = '%s_%s' % (fileid, slide['islide'])
@@ -236,7 +237,7 @@ def store_slide(db, fileid, slide):
                     )
         )
         #slide['thumb'].save(slidebasefn+'_thumb.png')
-    
+
         # write hires
         slide['hires'].save(slidebasefn+'.png')
         #cur.execute('update slides set hires=? where rowid=?',
@@ -246,7 +247,7 @@ def store_slide(db, fileid, slide):
         #            )
         #)
 
-    db.commit()    
+    db.commit()
 
     return slideid, slidebasefn
 
@@ -265,11 +266,11 @@ def process1(db, fn, known_checksums):
     if checksum in known_checksums:
         logging.warning('skipping duplicate %s', fn)
         return
-    
+
     # write file to library & update known_checksums
     fileid = store_file(db, os.path.abspath(fn), checksum)
     known_checksums.append(checksum)
-    
+
     # extract: render (thumbnail, hires), text fragments, serialize?
     slides = extract_slides(fn)
 
@@ -283,14 +284,14 @@ def process1(db, fn, known_checksums):
 def main():
     # open existing database if exists else create new
     db = db_connect()
-    
+
     # get list of folders/files to index
     fns = get_files_to_index()
 
     # init checksums
     known_checksums = fetch_known_checksums(db)
     logging.info('library knows of %s ppt/pptx files', len(known_checksums))
-    
+
     # for each file to index
     for fn in fns:
         try:
